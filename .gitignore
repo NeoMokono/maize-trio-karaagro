@@ -1,0 +1,16 @@
+# data and model artefacts: never commit
+data/
+*.pt
+*.onnx
+runs/
+*.zip
+
+# python / notebooks
+__pycache__/
+*.pyc
+.venv/
+.ipynb_checkpoints/
+.env
+
+# os
+.DS_Store
