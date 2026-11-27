@@ -1,0 +1,10 @@
+# R03-clspw: base + cls_pw 0.5 (built-in Ultralytics class weighting, checked in 8.4.220).
+# Weight for class c = (1 / train box count of c) ** cls_pw, rescaled so the 6 weights average 1.
+# The weight multiplies class c's channel of the classification BCE loss at every anchor,
+# so it scales both "find more c" and "stop false c" errors for that class.
+# Copy the "Class weights: [...]" line from the training log into the run tracker.
+inherit: base.yaml
+run:
+  id: R03-clspw
+  changes: cls_pw 0.5
+cls_pw: 0.5

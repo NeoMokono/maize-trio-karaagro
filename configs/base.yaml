@@ -1,0 +1,49 @@
+# R00-base: locked settings from the shared Google Doc ("Shared settings and Git", 24 Nov).
+# Every run = this file + one override file. Keys below are Ultralytics train() arguments,
+# except the three keys in the "run" block, which src/train.py reads itself.
+#
+# PLACEHOLDERS to match Neo's baseline once known: model, epochs (and batch if he had to drop it).
+# Override them on the command line, e.g.  python -m src.train configs/R01-mixup.yaml --epochs 30
+
+run:
+  id: R00-base
+  changes: nothing (baseline)
+  needs_rfs: false           # true only for R02: train.py refuses a dataset without rfs_manifest.csv
+
+model: yolo11s.pt            # PLACEHOLDER (plan: yolo11s, COCO-pretrained)
+epochs: 40                   # PLACEHOLDER (plan: 40 if one epoch <= 6 min, else 30; same for every run)
+patience: 10
+imgsz: 640
+batch: 16                    # if out of memory, use 8 and note it in the run tracker
+optimizer: SGD               # set explicitly: "auto" depends on iteration count, which RFS changes
+lr0: 0.01
+lrf: 0.01
+momentum: 0.937
+weight_decay: 0.0005
+warmup_epochs: 3.0
+seed: 42
+deterministic: true
+amp: true
+
+# augmentation: Ultralytics defaults, written out so the record is explicit
+mosaic: 1.0
+close_mosaic: 10
+mixup: 0.0
+cutmix: 0.0
+copy_paste: 0.0
+fliplr: 0.5
+flipud: 0.0
+hsv_h: 0.015
+hsv_s: 0.7
+hsv_v: 0.4
+translate: 0.1
+scale: 0.5
+degrees: 0.0
+shear: 0.0
+perspective: 0.0
+
+# loss: defaults
+box: 7.5
+cls: 0.5
+dfl: 1.5
+cls_pw: 0.0

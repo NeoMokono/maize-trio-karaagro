@@ -1,0 +1,8 @@
+# R02-rfs: base, trained on the oversampled train set built by src/oversample.py (t = 0.3).
+# No training argument changes; only the data changes. Pass --data /content/yolo_rfs/dataset.yaml.
+# Caveat to report: epochs are fixed, so R02 sees about 17% more iterations than R00.
+inherit: base.yaml
+run:
+  id: R02-rfs
+  changes: repeat factor sampling, t 0.3 (train images only)
+  needs_rfs: true

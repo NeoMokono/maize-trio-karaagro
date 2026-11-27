@@ -1,70 +1,57 @@
-# mAIze Trio: KaraAgro Maize Imbalance Study
+# Imbalance runs and evaluation (R00 to R03)
 
-Team **mAIze Trio**, AI Research Foundations Capstone (supported by Google and DeepMind).
+Code for the four core runs in the locked plan (Google Doc, "Experiments" and "Shared settings" tabs) and for evaluating them. Tested end to end on a tiny synthetic dataset on CPU (27 Nov), not yet on the real data or a GPU.
 
-**Team:** Neo Mokono, Hawa Ibrahim, Dr Olaperi Okuboyejo
+## Files and branches
 
-## The problem
+| Branch | Files |
+|---|---|
+| `feat/train-config` | `configs/base.yaml`, `configs/R00-base.yaml`, `R01-mixup.yaml`, `R02-rfs.yaml`, `R03-clspw.yaml`, `src/train.py`, `notebooks/03-train.ipynb`, `docs/imbalance-runs.md` (this file) |
+| `feat/oversample` | `src/oversample.py` |
+| `feat/eval` | `src/evaluate.py`, `src/compare.py`, `notebooks/04-evaluate.ipynb` |
 
-Fall armyworm (FAW) can destroy a maize field quickly, and control works best when eggs and young larvae are found early. In the KaraAgro AI Maize dataset (16,552 images), those are the rarest and smallest labels.
+R02 needs both `feat/train-config` and `feat/oversample` merged.
 
-| Class | Images | Labelled boxes | Average share of image |
-|---|---|---|---|
-| Larval damage | 5,138 | 38,076 | 20.7% |
-| Frass | 3,376 | 15,218 | 13.2% |
-| Larva | 1,454 | 1,512 | 3.8% |
-| Egg | 301 | 1,026 | 16.7% |
+## How to run (Colab, GPU runtime)
 
-Damage outnumbers eggs about 37 to 1. At image level the three categories are roughly balanced (maize streak 6,095, FAW 5,509, healthy 4,948), so the real imbalance is inside the FAW labels.
+1. `notebooks/03-train.ipynb`: set `RUN`, run all. It builds `/content/yolo` if needed, and for R02 also builds the oversampled `/content/yolo_rfs`. Then it prints the merged settings and trains into the Drive runs folder.
+2. `notebooks/04-evaluate.ipynb`: evaluates every run that has weights and writes `results/<run>/val_metrics.csv`. It then writes `results/comparison_val.md` with all the tables for the run tracker.
 
-**Research question:** can a detector catch FAW early, at the egg and larva stage, despite how rare those labels are?
-
-## Three problems to plan for
-
-1. **Rarity and size are mixed up.** Larvae are both rare and tiny. Fix: cut a common class such as frass down to the egg count and plot detection quality against examples remaining.
-2. **No official test set, so leakage is likely.** Photos of the same plant or plot look nearly identical. Fix: group near-duplicates (perceptual hashing) before splitting, and publish the split.
-3. **The model may learn the camera, not the pest.** The dataset page warns about camera differences across regions. Fix: test on degraded copies (blur, heavy JPEG compression, low light).
-
-## Experiment plan
-
-- **Baseline:** a YOLO detector trained on the deduplicated split.
-- **Fixes to compare:** oversampling images with rare classes; focal or class-weighted loss; pasting egg and larva crops into other training images; tiling or higher-resolution inputs.
-- **Metrics:** per-class accuracy, plus recall on eggs and larvae at a fixed precision. Do not report only mAP.
-- **Optional:** per-class confidence thresholds that send uncertain photos to an extension officer.
-
-Budget: 10 to 15 training runs. The dataset is about 1.5 GB and listed as Colab-friendly.
-
-## Scope
-
-We will not build a farmer-facing app, give treatment advice, or replace an agronomist. We will not collect new images, generate synthetic ones, or compare many architectures. Results apply to this dataset only, not to South African fields. Only the method (not the model) carries over to citrus.
-
-## Start here (read in this order)
-
-1. [AIMS Capstone: KaraAgro AI Maize](https://capstone.aims.ac.za/datasets/karaagro-maize/): the dataset page, with licence (CC0), warnings and download.
-2. [Dataset Ninja: KaraAgro AI Maize](https://datasetninja.com/kara-agro-ai-maize): class statistics and sample images.
-3. [Ultralytics YOLO docs](https://docs.ultralytics.com/): training and evaluating the baseline detector.
-4. [Focal Loss for Dense Object Detection (Lin et al., 2017)](https://arxiv.org/abs/1708.02002): the loss behind one of our fixes.
-5. [Simple Copy-Paste is a Strong Data Augmentation Method (Ghiasi et al., 2020)](https://arxiv.org/abs/2012.07177): the idea behind pasting rare-class crops.
-6. [imagehash](https://github.com/JohannesBuchner/imagehash): perceptual hashing for near-duplicate grouping.
-7. [SAHI](https://github.com/obss/sahi): sliced inference for small objects (tiling).
-
-_Add: an FAW background source, and any South African maize references._
-
-## Open questions
-
-- Can anyone in the group find South African maize photos during the project?
-
-## Repo layout
+From a terminal it is the same thing:
 
 ```
-README.md        this file
-docs/            plan, decisions, meeting notes
-notebooks/       Colab notebooks (baseline, experiments)
-src/             shared code (splits, metrics)
-splits/          published train/val/test file lists
-results/         metrics tables and figures
+python -m src.train configs/R01-mixup.yaml --data /content/yolo/dataset.yaml --project <Drive>/kara-agro/runs
+python -m src.oversample --src /content/yolo --out /content/yolo_rfs        # R02 only
+python -m src.evaluate --run R01-mixup --weights <Drive>/kara-agro/runs/R01-mixup/weights/best.pt \
+    --data /content/yolo/dataset.yaml --split val --out results/R01-mixup
+python -m src.compare --results results --split val
 ```
 
-## Licence
+## Placeholders (match Neo's baseline)
 
-Code: MIT (to confirm). The dataset is CC0, so our splits and models can be released openly.
+`base.yaml` holds the locked defaults: yolo11s.pt, 40 epochs, batch 16. Neo's real values may differ, so override them on every run with `--model`, `--epochs` and `--batch` (in the notebook, the `MODEL`, `EPOCHS` and `BATCH` variables). Any other setting can be changed with `--set key=value`. Every change is written to `run_config.yaml` and `run_info.json` in the run folder, along with the Ultralytics and torch versions and the GPU. Use the same Ultralytics version for all four runs: if Neo's R00 used a different version, pin that one.
+
+## What each run changes, and how
+
+- **R01 mixup 0.3.** This is a single setting. Note that Ultralytics applies mixup inside the mosaic step, so it is switched off along with mosaic for the last `close_mosaic` = 10 epochs. With 40 epochs, mixup is active for 30 of them. The same applies to R00's mosaic, so the comparison stays fair, but the methods section should say so. (Checked: with 3 epochs and close_mosaic 10, R00 and R01 trained identically. With close_mosaic 0 they differed.)
+- **R02 repeat factor sampling, t = 0.3** (LVIS, Gupta et al. 2019). For each class c, f_c is the share of train images that contain c, and r_c = max(1, sqrt(t / f_c)). An image's factor is the largest r_c of the classes in it (1 for background images). That factor is stochastically rounded with seed 42, and the image is repeated that many times as symlinked copies named `<stem>__rep1`, `__rep2` and so on. Labels are copied. Val and test are linked unchanged. The script prints f_c, r_c, and how many times each class's images appear before and after. Check that egg comes out at about ×4 and the total at about 13,400. `train.py` refuses to run R02 on the plain dataset, or any other run on the oversampled one.
+- **R03 cls_pw 0.5.** Ultralytics has this built in (checked in the source code of 8.4.220, the latest version on PyPI). It counts the train boxes per class and sets w_c = (1 / count_c)^0.5, rescaled so the six weights average 1. Each class's channel of the classification BCE loss is multiplied by w_c at every anchor. So the weighting raises the cost of both missing a rare-class object and predicting that class wrongly. It does not change the box or DFL losses. The log line `Class weights: [...]` and `run_info.json` record the values used. On the synthetic data they matched a hand calculation exactly.
+
+## What the evaluation reports
+
+From one Ultralytics validation pass with the locked call (imgsz 640, batch 16, conf 0.001, iou 0.7):
+
+- Per class: images, boxes, precision, recall and F1 (at the confidence that maximises mean F1, which is how Ultralytics reports them), AP50 and AP50-95.
+- **R@P0.5:** the highest recall with precision of at least 0.5 on the IoU 0.5 curve, plus the confidence threshold that reaches it (useful later for per-class thresholds).
+- **Bootstrap 95% intervals** for egg and larva AP50, from 1,000 resamples of the evaluation images with seed 42.
+- Summary rows: macro mean over the 6 classes (the same as Ultralytics mAP50), the FAW mean (4 classes) and the rare mean (egg and larva).
+- Confusion matrices at conf 0.25 (PNG and CSV), plus Ultralytics' own at 0.001. At 0.001 nearly every low-confidence box shows up as a background false positive, which makes that matrix hard to read.
+- A built-in check: AP50 is recomputed from the kept per-image matches and must equal Ultralytics' number. That shows the extra metrics rest on the same predictions. It gave an exact match on the synthetic data.
+
+`compare.py` builds the tables for the Run tracker: AP50 per class, recall per class with R@P0.5, the success rule against R00 (egg at least +10 points, none of damage, healthy or streak down by more than 2 points), and the best run on val (highest egg AP50, tie-break macro AP50). Runs without results yet are listed as missing.
+
+## Not checked yet
+
+- Nothing has run on the real dataset or a GPU yet. Run time and memory at 640 px with yolo11s are unknown.
+- The `--resume` path and the Colab-only cells (Drive mount, pip) were not run.
+- Symlinks need Linux (Colab). On Windows, pass `--copy` to `oversample.py`.

@@ -1,0 +1,7 @@
+# R01-mixup: base + mixup 0.3 (on top of the default mosaic).
+# Source: Crasto 2024 (arXiv 2403.07113) found mosaic + mixup 0.3 the best augmentation setting.
+inherit: base.yaml
+run:
+  id: R01-mixup
+  changes: mixup 0.3
+mixup: 0.3

@@ -1,0 +1,2 @@
+# R00-base: the locked settings in base.yaml, unchanged.
+inherit: base.yaml
